@@ -1,0 +1,30 @@
+# Spec/build artifacts that must never enter the repo
+SPEC*.md
+*EXTREME*.md
+*PROMPT*.md
+REVIEW*.md
+FIX_PROMPT*
+SELFREVIEW*
+DRAFT*
+REPORT.md
+INTERFACES.md
+STATUS*
+
+# Build / runtime artifacts
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.tscache/
+
+# Local runtime state (dev server data, exports, keys)
+*.sqlite
+*.sqlite-journal
+var/
+*.jsonl
+lextier-trust.local.json
+.env
+.env.*
+!.env.example

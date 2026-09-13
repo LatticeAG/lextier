@@ -1,0 +1,36 @@
+v: 1
+revision: 1
+mode: ENFORCE
+review_ttl_ms: 120000
+dispatch_ttl_ms: 5000
+reviewers:
+  - ltp_000000000000000000002
+rules:
+  - id: read-public
+    tool: fs.read_text
+    when:
+      - path: /path
+        op: path_under
+        value: /workspace/public
+    tier: allow
+  - id: write-drafts
+    tool: fs.write_text
+    when:
+      - path: /path
+        op: path_under
+        value: /workspace/drafts
+    tier: async_review
+  - id: select-products
+    tool: db.select_rows
+    when:
+      - path: /table
+        op: eq
+        value: products
+    tier: allow
+hard_denies:
+  - id: private-files
+    tool: fs.read_text
+    when:
+      - path: /path
+        op: path_under
+        value: /workspace/private
