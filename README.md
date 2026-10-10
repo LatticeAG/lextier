@@ -93,7 +93,11 @@ npm test            # 97 tests incl. all 52 conformance vectors
 npm run typecheck
 
 # dev gateway (fixture bindings, loopback only)
-LEXTIER_AUDIT_SEED=<32-byte-hex> \
+# LEXTIER_AUDIT_SEED must be the Ed25519 seed whose public key matches the
+# audit_public_key pinned in lextier-gateway.json — a random 32-byte hex seed
+# fails boot with POLICY_INVALID. `dev-seed` prints the matching seed
+# (RFC 8032 test vector; fixture/dev only):
+LEXTIER_AUDIT_SEED=$(node bin/lextier.mjs dev-seed | node -e 'console.log(JSON.parse(require("fs").readFileSync(0)).audit_seed)') \
   node bin/lextier.mjs serve --gateway-config lextier-gateway.json --port 8787
 
 # CLI happy path
@@ -101,6 +105,23 @@ export LEXTIER_TOKEN=tok-u            # dev fixture identity (agent U)
 node bin/lextier.mjs submit --file call.json --json
 node bin/lextier.mjs status --json
 ```
+
+`dev-seed` emits `{audit_seed, audit_public_key}` — with the shipped config
+that is seed `9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60`
+(public key `d75a98…`). A different gateway config needs its own key pair, and
+`audit_public_key` must be updated to match.
+
+## CLI notes
+
+- `audit export --through HEAD` exports up to the current audit head — a
+  numeric `--through N` fails `SCHEMA_INVALID` when `N` exceeds the head.
+- `submit` (and the other state-returning commands `decide`, `cancel`,
+  `reconcile`) exit by terminal state: `0` `SUCCEEDED`, `4` non-terminal
+  (`PENDING`/`STOPPED`/`READY`/`DISPATCHING`), `3` `DENIED`/`REJECTED`/
+  `CANCELED`/`STALE`/`EXPIRED`, `8` `UNKNOWN`, `9` `FAILED`. Pass `--wait-ms N`
+  to poll for a terminal state before exiting. Other exit codes: `2` usage/
+  schema, `5` network/dependency, `6` auth, `7` evidence, `10` conflict, `130`
+  SIGINT.
 
 Python:
 
