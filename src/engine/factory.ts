@@ -85,7 +85,9 @@ export async function boot(built: Built, opts: { policyRaw: unknown; adminActor:
   if (signer instanceof LocalSigner && opts.signerSeedHex) {
     const pub = bytesToHex(edPublicKeyFromSeed(hexToBytes(opts.signerSeedHex)));
     if (pub !== built.config.audit_public_key) {
-      throw err("POLICY_INVALID", null, `audit_public_key mismatch: signer has ${pub}`);
+      throw err("POLICY_INVALID", null,
+        `audit_public_key mismatch: signer has ${pub}; ` +
+        "`lextier dev-seed` prints the LEXTIER_AUDIT_SEED matching the shipped gateway config");
     }
   }
   await gw.installKeyRegistry();

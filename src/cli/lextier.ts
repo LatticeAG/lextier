@@ -14,6 +14,7 @@ import { parseYaml } from "../core/yaml.ts";
 import { sha256Hex } from "../core/hash.ts";
 import { compilePolicy, policyHash, evaluate } from "../core/policy.ts";
 import { verifyChain, type AuditEntry, type SignedHead, type KeyInterval, type KeyRotation, verifyRotationSig, eventHash } from "../core/audit.ts";
+import { edPublicKeyFromSeed, hexToBytes, bytesToHex } from "../core/ed25519.ts";
 import { computeReviewerStats, type DecisionPoint } from "../core/stats.ts";
 import { isId } from "../core/ids.ts";
 import { RE } from "../core/hash.ts";
@@ -436,7 +437,10 @@ async function cmdPolicyEvaluateRemote(client: Client, flags: Map<string, string
 
 async function cmdAuditExport(client: Client, flags: Map<string, string>): Promise<number> {
   const after = uintFlag(flags, "after", 0);
-  const through = uintFlag(flags, "through");
+  // --through HEAD exports up to the current audit head (avoids a SCHEMA_INVALID
+  // round-trip discovering the head); a numeric value must satisfy N <= head.
+  const throughRaw = req(flags, "through");
+  const through = throughRaw.toUpperCase() === "HEAD" ? null : uintFlag(flags, "through");
   const outPath = req(flags, "out");
   const evDir = flags.get("include-evidence") ?? null;
   if (existsSync(outPath)) dieUsage(`output '${outPath}' already exists`);
@@ -446,7 +450,9 @@ async function cmdAuditExport(client: Client, flags: Map<string, string>): Promi
   let head: SignedHead | null = null;
   let cursor = after;
   for (;;) {
-    const page = await client.get("/v1/audit", { after: String(cursor), through: String(through), limit: "200" });
+    const query: Record<string, string> = { after: String(cursor), limit: "200" };
+    if (through !== null) query.through = String(through);
+    const page = await client.get("/v1/audit", query);
     const p = page.body as unknown as { entries: AuditEntry[]; head: SignedHead | null; next_after: number | null };
     for (const e of p.entries) {
       // verify continuity while downloading
@@ -681,6 +687,16 @@ async function cmdStatus(client: Client): Promise<number> {
   return (r.body as { ready: boolean }).ready ? EXIT.OK : EXIT.NETWORK;
 }
 
+// Ed25519 seed whose public key matches the shipped lextier-gateway.json
+// audit_public_key (the RFC 8032 §7.1 TEST 1 key pair). Fixture/dev only.
+const DEV_AUDIT_SEED = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
+
+async function cmdDevSeed(): Promise<number> {
+  const pub = bytesToHex(edPublicKeyFromSeed(hexToBytes(DEV_AUDIT_SEED)));
+  out({ audit_seed: DEV_AUDIT_SEED, audit_public_key: pub });
+  return EXIT.OK;
+}
+
 async function cmdServe(flags: Map<string, string>): Promise<number> {
   const gwPath = req(flags, "gateway-config");
   const port = uintFlag(flags, "port", 8787);
@@ -748,6 +764,7 @@ offline:
   reaudit sample --audit AUDIT.jsonl --count N --seed UINT
   stats --from-ms A --to-ms B --audit AUDIT.jsonl
   serve --gateway-config GW.json --port N
+  dev-seed    print the LEXTIER_AUDIT_SEED matching the shipped gateway config
 
 network (requires client config + credential env):
   policy show | policy apply --file POLICY.yaml --expected-revision N
@@ -758,7 +775,7 @@ network (requires client config + credential env):
   decide --action ID --file DECISION.json
   cancel --action ID --revision N --reason requester_cancel|operator_cancel
   reconcile --action ID
-  audit export --after A --through T --out FILE.jsonl [--include-evidence DIR]
+  audit export --after A --through T|HEAD --out FILE.jsonl [--include-evidence DIR]
   audit rotate-key --new-key-id ID --new-public-key HEX --expected-head-seq N
   evidence get --hash H
   stats --from-ms A --to-ms B [--through-seq N]
@@ -781,6 +798,7 @@ async function main(): Promise<number> {
     || (cmd[0] === "audit" && cmd[1] === "verify")
     || (cmd[0] === "reaudit" && cmd[1] === "sample")
     || cmd[0] === "serve"
+    || cmd[0] === "dev-seed"
     || (cmd[0] === "stats" && flags.has("audit"));
 
   let cfg: ClientConfig | null = null;
@@ -806,6 +824,7 @@ async function main(): Promise<number> {
     case "reconcile": return await cmdReconcile(need(client), flags);
     case "audit export": return await cmdAuditExport(need(client), flags);
     case "audit verify": return await cmdAuditVerify(flags);
+    case "dev-seed": return await cmdDevSeed();
     case "audit rotate-key": return await cmdRotateKey(need(client), flags);
     case "evidence get": return await cmdEvidenceGet(need(client), flags);
     case "stats": return await cmdStats(client, flags);
@@ -831,7 +850,7 @@ main().then((code) => process.exit(code)).catch((e) => {
   if (e && typeof e === "object" && "code" in e && typeof (e as { code: unknown }).code === "string") {
     const code = (e as { code: string }).code;
     out({ error: { code, retryable: false, action_id: (e as { actionId?: string | null }).actionId ?? null } });
-    diag(`error: ${code}`);
+    diag(`error: ${(e as Error).message ?? code}`);
     process.exit(codeToExit(code));
   }
   diag(`error: ${(e as Error).message ?? e}`);
