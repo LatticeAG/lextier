@@ -87,6 +87,9 @@ tests/         vector harness + unit/permutation/fuzz/crash/concurrency/HTTP
 
 ## Quick start (development)
 
+Use Node.js 24 or newer for development and CLI commands. CI tests Node.js 24;
+Node.js 22 is unsupported and npm will report an `EBADENGINE` warning.
+
 ```sh
 npm install
 npm test            # 97 tests incl. all 52 conformance vectors
