@@ -12,6 +12,7 @@ const run = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], {
 const help = run("--help");
 assert.equal(help.status, 0, help.stderr);
 assert.match(help.stdout, /policy lint/);
+assert.doesNotMatch(help.stderr, /ExperimentalWarning: SQLite is an experimental feature/);
 
 const lint = run("policy", "lint", "--file", "lextier.yaml");
 assert.equal(lint.status, 0, lint.stderr);
