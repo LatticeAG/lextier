@@ -87,6 +87,8 @@ tests/         vector harness + unit/permutation/fuzz/crash/concurrency/HTTP
 
 ## Quick start (development)
 
+Use Node.js 22.18 or newer for development and CLI commands. CI tests Node.js 22.18 and 24.
+
 ```sh
 npm install
 npm test            # 97 tests incl. all 52 conformance vectors

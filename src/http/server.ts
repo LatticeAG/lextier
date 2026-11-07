@@ -1,7 +1,7 @@
 /**
  * Development/local HTTP server for the gateway. Production deploys run the
- * same Router inside the platform worker; this server exists for local runs,
- * the CLI smoke path, and tests.
+ * same Router inside the platform worker; this server exists for local runs
+ * and HTTP tests. The CLI smoke test exercises offline commands.
  */
 
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
